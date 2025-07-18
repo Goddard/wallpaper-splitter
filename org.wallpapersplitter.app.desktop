@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Wallpaper Splitter
+Name[en_US]=Wallpaper Splitter
+Comment=Split wallpapers for multi-monitor setups
+Comment[en_US]=Split wallpapers for multi-monitor setups
+Exec=wallpaper-splitter-kde
+Icon=org.wallpapersplitter.app
+Terminal=false
+Categories=Graphics;Utility;
+Keywords=wallpaper;monitor;multi-monitor;desktop;
+StartupWMClass=wallpaper-splitter-kde 

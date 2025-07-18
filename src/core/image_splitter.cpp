@@ -2,7 +2,8 @@
 #include <QDebug>
 #include <QDir>
 #include <QFileInfo>
-#include <Magick++.h>
+#include <QImage>
+#include <QPainter>
 #include <algorithm>
 
 namespace WallpaperCore {
@@ -86,41 +87,44 @@ bool ImageSplitter::splitImageForMonitor(const QString& inputPath,
                                         const QString& outputPath,
                                         int monitorIndex)
 {
-    try {
-        Magick::Image image;
-        image.read(inputPath.toStdString());
-        
-        QSize imageSize(image.columns(), image.rows());
-        
-        // Use the passed monitorIndex directly (0, 1, 2) for simple horizontal splitting
-        // Calculate crop rectangle for simple horizontal splitting (like the reference script)
-        int sectionWidth = imageSize.width() / 3; // 33.33% of image width
-        int cropX = monitorIndex * sectionWidth;
-        int cropY = 0;
-        int cropWidth = sectionWidth;
-        int cropHeight = imageSize.height(); // 100% of image height
-        
-        // Crop the image for this monitor
-        image.crop(Magick::Geometry(cropWidth, cropHeight, cropX, cropY));
-        
-        // Resize to monitor resolution if needed
-        if (cropWidth != monitor.geometry.width() || cropHeight != monitor.geometry.height()) {
-            image.resize(Magick::Geometry(monitor.geometry.width(), 
-                                        monitor.geometry.height()));
-        }
-        
-        // Save the cropped image
-        image.write(outputPath.toStdString());
-        
-        qDebug() << "Split image for monitor" << monitor.name 
-                 << "(index" << monitorIndex << ") saved to" << outputPath;
-        
-        return true;
-    }
-    catch (const Magick::Exception& e) {
-        qWarning() << "ImageMagick error:" << e.what();
+    // Load image using Qt
+    QImage image(inputPath);
+    if (image.isNull()) {
+        qWarning() << "Failed to load image:" << inputPath;
         return false;
     }
+    
+    QSize imageSize = image.size();
+    
+    // Use the passed monitorIndex directly (0, 1, 2) for simple horizontal splitting
+    // Calculate crop rectangle for simple horizontal splitting (like the reference script)
+    int sectionWidth = imageSize.width() / 3; // 33.33% of image width
+    int cropX = monitorIndex * sectionWidth;
+    int cropY = 0;
+    int cropWidth = sectionWidth;
+    int cropHeight = imageSize.height(); // 100% of image height
+    
+    // Crop the image for this monitor
+    QImage cropped = image.copy(QRect(cropX, cropY, cropWidth, cropHeight));
+    
+    // Resize to monitor resolution if needed
+    if (cropWidth != monitor.geometry.width() || cropHeight != monitor.geometry.height()) {
+        cropped = cropped.scaled(monitor.geometry.width(), 
+                                monitor.geometry.height(),
+                                Qt::IgnoreAspectRatio,
+                                Qt::SmoothTransformation);
+    }
+    
+    // Save the cropped image
+    if (!cropped.save(outputPath, "JPEG", 95)) { // 95% quality
+        qWarning() << "Failed to save image:" << outputPath;
+        return false;
+    }
+    
+    qDebug() << "Split image for monitor" << monitor.name 
+             << "(index" << monitorIndex << ") saved to" << outputPath;
+    
+    return true;
 }
 
 QSize ImageSplitter::getOptimalImageSize(const MonitorList& monitors)
@@ -151,26 +155,24 @@ bool ImageSplitter::validateImage(const QString& imagePath,
         return false;
     }
     
-    try {
-        Magick::Image image;
-        image.read(imagePath.toStdString());
-        
-        QSize imageSize(image.columns(), image.rows());
-        QSize optimalSize = getOptimalImageSize(monitors);
-        
-        if (imageSize.width() < optimalSize.width() || 
-            imageSize.height() < optimalSize.height()) {
-            qWarning() << "Image size" << imageSize 
-                       << "is smaller than optimal size" << optimalSize;
-            return false;
-        }
-        
-        return true;
-    }
-    catch (const Magick::Exception& e) {
-        qWarning() << "Failed to validate image:" << e.what();
+    // Load image using Qt
+    QImage image(imagePath);
+    if (image.isNull()) {
+        qWarning() << "Failed to load image:" << imagePath;
         return false;
     }
+    
+    QSize imageSize = image.size();
+    QSize optimalSize = getOptimalImageSize(monitors);
+    
+    if (imageSize.width() < optimalSize.width() || 
+        imageSize.height() < optimalSize.height()) {
+        qWarning() << "Image size" << imageSize 
+                   << "is smaller than optimal size" << optimalSize;
+        return false;
+    }
+    
+    return true;
 }
 
 QRect ImageSplitter::calculateCropRect(const QSize& imageSize, 

@@ -17,9 +17,15 @@ MainWindow::MainWindow(QWidget* parent)
     m_imageSplitter = new WallpaperCore::ImageSplitter();
     m_wallpaperApplier = new WallpaperCore::WallpaperApplier(this);
     
-    // Setup output directory - use directory next to executable
+    // Setup output directory - use writable location in Flatpak or next to executable
     QString appDir = QCoreApplication::applicationDirPath();
-    m_outputDir = appDir + "/wallpaper-splitter";
+    if (appDir.startsWith("/app/")) {
+        // We're in a Flatpak, use user's home directory
+        m_outputDir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation) + "/.wallpaper-splitter";
+    } else {
+        // We're not in a Flatpak, use directory next to executable
+        m_outputDir = appDir + "/wallpaper-splitter";
+    }
     
     setupUI();
     

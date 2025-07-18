@@ -5,18 +5,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find required packages
-find_package(PkgConfig REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 find_package(KF6CoreAddons REQUIRED)
 find_package(KF6WidgetsAddons REQUIRED)
 find_package(KF6I18n REQUIRED)
-
-# ImageMagick
-pkg_check_modules(IMAGEMAGICK REQUIRED Magick++)
-
-# Add ImageMagick configuration defines
-add_definitions(-DMAGICKCORE_QUANTUM_DEPTH=16)
-add_definitions(-DMAGICKCORE_HDRI_ENABLE=0)
 
 # Qt provides cross-platform screen detection (works on X11 and Wayland)
 
@@ -40,13 +32,8 @@ add_library(wallpaper-core STATIC
 )
 
 target_link_libraries(wallpaper-core
-    ${IMAGEMAGICK_LIBRARIES}
     Qt6::Core
     Qt6::Gui
-)
-
-target_include_directories(wallpaper-core PUBLIC
-    ${IMAGEMAGICK_INCLUDE_DIRS}
 )
 
 # KDE Plasma interface

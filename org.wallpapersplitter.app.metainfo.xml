@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.wallpapersplitter.app</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Wallpaper Splitter</name>
+  <summary>Split wallpapers for multi-monitor setups</summary>
+  <description>
+    <p>
+      A C++ application for splitting wallpapers across multiple monitors with native desktop environment support. 
+      Currently supports KDE Plasma with a modular architecture designed for easy extension to other desktop environments.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Multi-Monitor Support: Automatically detects connected monitors and their layouts</li>
+      <li>Smart Image Splitting: Splits images based on monitor geometry and positioning</li>
+      <li>Native Desktop Integration: Uses native wallpaper application methods for each desktop environment</li>
+      <li>Modular Architecture: Core functionality separated from UI for easy extension</li>
+      <li>KDE Plasma Interface: Native Qt/KDE GUI with modern design</li>
+      <li>Command Line Interface: Full CLI support for automation and scripting</li>
+    </ul>
+  </description>
+  <url type="homepage">https://github.com/yourusername/wallpaper-splitter</url>
+  <url type="bugtracker">https://github.com/yourusername/wallpaper-splitter/issues</url>
+  <url type="help">https://github.com/yourusername/wallpaper-splitter</url>
+  <launchable type="desktop-id">org.wallpapersplitter.app.desktop</launchable>
+  <releases>
+    <release version="1.0.0" date="2024-07-18">
+      <description>
+        <p>Initial release with KDE Plasma support</p>
+        <ul>
+          <li>Multi-monitor wallpaper splitting</li>
+          <li>Native KDE Plasma GUI</li>
+          <li>Command line interface</li>
+          <li>Qt-based image processing</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+  <content_rating type="oars-1.1" />
+  <categories>
+    <category>Graphics</category>
+    <category>Utility</category>
+  </categories>
+  <keywords>
+    <keyword>wallpaper</keyword>
+    <keyword>monitor</keyword>
+    <keyword>multi-monitor</keyword>
+    <keyword>desktop</keyword>
+  </keywords>
+</component> 

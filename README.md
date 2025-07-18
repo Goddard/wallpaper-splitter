@@ -4,12 +4,15 @@ A C++ application for splitting wallpapers across multiple monitors with native 
 
 ## Features
 
-- **Multi-Monitor Support**: Automatically detects connected monitors and their layouts
-- **Smart Image Splitting**: Splits images based on monitor geometry and positioning
+- **Multi-Monitor Support**: Automatically detects connected monitors and their layouts using Qt's cross-platform screen detection
+- **Smart Image Splitting**: Splits images based on monitor geometry and positioning using Qt's built-in image processing
 - **Native Desktop Integration**: Uses native wallpaper application methods for each desktop environment
 - **Modular Architecture**: Core functionality separated from UI for easy extension
 - **KDE Plasma Interface**: Native Qt/KDE GUI with modern design
 - **Command Line Interface**: Full CLI support for automation and scripting
+- **Flatpak Support**: Available as a Flatpak package for easy installation
+- **Cross-Platform**: Works on both X11 and Wayland display servers
+- **Alternating Prefix System**: Forces desktop environments to detect wallpaper changes
 
 ## Architecture
 
@@ -24,8 +27,8 @@ wallpaper-splitter/
 │   └── wallpaper_applier.h # Wallpaper application interface
 ├── src/
 │   ├── core/               # Core library implementation
-│   │   ├── monitor_detector.cpp    # X11-based monitor detection
-│   │   ├── image_splitter.cpp      # ImageMagick-based image splitting
+│   │   ├── monitor_detector.cpp    # Qt-based monitor detection
+│   │   ├── image_splitter.cpp      # Qt-based image splitting
 │   │   └── wallpaper_applier.cpp   # KDE Plasma wallpaper application
 │   ├── kde/                # KDE Plasma GUI
 │   │   ├── main.cpp        # Application entry point
@@ -34,16 +37,17 @@ wallpaper-splitter/
 │   │   └── imagepreview.cpp # Image preview widget
 │   └── cli/                # Command line interface
 │       └── main.cpp        # CLI implementation
-└── kde/                    # KDE-specific resources
-    ├── wallpaper-splitter.desktop # Desktop integration
-    └── icons/              # Application icons
+├── org.wallpapersplitter.app.yml    # Flatpak manifest
+├── org.wallpapersplitter.app.desktop # Desktop integration
+├── org.wallpapersplitter.app.metainfo.xml # App metadata
+└── original-icon-file-transparent-512.png # Application icon
 ```
 
 ### Core Components
 
-1. **MonitorDetector**: Detects connected monitors using X11/RandR
-2. **ImageSplitter**: Splits images using ImageMagick based on monitor layout
-3. **WallpaperApplier**: Applies wallpapers using desktop-specific methods
+1. **MonitorDetector**: Detects connected monitors using Qt's QScreen API (works on X11 and Wayland)
+2. **ImageSplitter**: Splits images using Qt's QImage for cropping and resizing
+3. **WallpaperApplier**: Applies wallpapers using KDE Plasma's DBus interface with JavaScript scripting
 
 ### Interface Layer
 
@@ -51,26 +55,40 @@ wallpaper-splitter/
 - **Command Line Interface**: Full-featured CLI for automation
 - **Future**: GNOME, XFCE, and other desktop interfaces can be easily added
 
-## Dependencies
+## Installation
 
-### Required
-- **Qt6**: Core Qt libraries (Core, Widgets)
+### Flatpak (Recommended)
+
+The easiest way to install Wallpaper Splitter is via Flatpak:
+
+```bash
+# Build and install locally
+flatpak-builder --user --install --force-clean build-dir org.wallpapersplitter.app.yml
+
+# Run the application
+flatpak run org.wallpapersplitter.app
+```
+
+### Manual Build
+
+#### Dependencies
+
+##### Required
+- **Qt6**: Core Qt libraries (Core, Widgets, Gui)
 - **KF6**: KDE Frameworks (CoreAddons, WidgetsAddons, I18n)
-- **ImageMagick++**: Image processing library
-- **X11**: X11 development libraries
 - **CMake**: Build system
 
-### Installation on Manjaro/Arch
+##### Installation on Manjaro/Arch
 ```bash
-sudo pacman -S qt6-base qt6-tools kf6-kcoreaddons kf6-kwidgetsaddons kf6-ki18n imagemagick libx11 cmake
+sudo pacman -S qt6-base qt6-tools kf6-kcoreaddons kf6-kwidgetsaddons kf6-ki18n cmake
 ```
 
-### Installation on Ubuntu/Debian
+##### Installation on Ubuntu/Debian
 ```bash
-sudo apt install qt6-base-dev qt6-tools-dev libkf6coreaddons-dev libkf6widgetsaddons-dev libkf6i18n-dev libmagick++-dev libx11-dev cmake
+sudo apt install qt6-base-dev qt6-tools-dev libkf6coreaddons-dev libkf6widgetsaddons-dev libkf6i18n-dev cmake
 ```
 
-## Building
+#### Building
 
 1. **Clone the repository**:
    ```bash
@@ -100,7 +118,11 @@ sudo apt install qt6-base-dev qt6-tools-dev libkf6coreaddons-dev libkf6widgetsad
 
 1. Launch the application:
    ```bash
-   wallpaper-splitter-kde
+   # If built manually
+   ./wallpaper-splitter-kde
+   
+   # If installed via Flatpak
+   flatpak run org.wallpapersplitter.app
    ```
 
 2. Click "Select Image" to choose your wallpaper image
@@ -111,33 +133,68 @@ sudo apt install qt6-base-dev qt6-tools-dev libkf6coreaddons-dev libkf6widgetsad
 
 **List detected monitors**:
 ```bash
-wallpaper-splitter-cli -l
+# If built manually
+./wallpaper-splitter-cli -l
+
+# If installed via Flatpak
+flatpak run --command=wallpaper-splitter-cli org.wallpapersplitter.app -l
 ```
 
 **Split image without applying**:
 ```bash
-wallpaper-splitter-cli -i /path/to/image.jpg -o /output/directory
+./wallpaper-splitter-cli -i /path/to/image.jpg -o /output/directory
 ```
 
 **Split and apply wallpapers**:
 ```bash
-wallpaper-splitter-cli -i /path/to/image.jpg -a
+./wallpaper-splitter-cli -i /path/to/image.jpg -a
 ```
 
 **Full options**:
 ```bash
-wallpaper-splitter-cli -i /path/to/image.jpg -o /output/directory -a
+./wallpaper-splitter-cli -i /path/to/image.jpg -o /output/directory -a
 ```
 
 ## How It Works
 
-1. **Monitor Detection**: Uses X11 RandR extension to detect connected monitors, their resolutions, and positions
-2. **Image Splitting**: Calculates the optimal crop regions for each monitor based on their virtual desktop positions
-3. **Wallpaper Application**: Uses desktop-specific commands (e.g., `plasma-apply-wallpaperimage` for KDE) to apply wallpapers
+### Monitor Detection
+Uses Qt's QScreen API to detect connected monitors, their resolutions, and positions. This works on both X11 and Wayland display servers.
 
-### Image Splitting Algorithm
+### Image Splitting
+The application splits images using a simple horizontal division approach:
+- For 3 monitors: Each monitor gets 1/3 of the image width
+- Images are cropped and resized to match each monitor's resolution
+- Uses Qt's QImage for all image processing operations
 
-The application calculates the virtual desktop size encompassing all monitors and scales the input image to match. Each monitor's wallpaper is then cropped from the appropriate region of the scaled image.
+### Wallpaper Application
+Uses KDE Plasma's DBus interface with JavaScript scripting to:
+- Set different wallpapers for each monitor
+- Force Plasma to refresh and detect changes
+- Uses alternating filename prefixes (a_ and b_) to ensure Plasma detects file changes
+
+### Alternating Prefix System
+To ensure KDE Plasma detects wallpaper changes, the application uses alternating filename prefixes:
+- First run: `a_wallpaper_0.jpg`, `a_wallpaper_1.jpg`, etc.
+- Second run: `b_wallpaper_0.jpg`, `b_wallpaper_1.jpg`, etc.
+- This forces Plasma to reload the wallpaper configuration
+
+## Technical Details
+
+### Image Processing
+- **Library**: Qt's QImage (no external dependencies)
+- **Format**: JPEG with 95% quality
+- **Processing**: Cropping, resizing, and format conversion
+- **Output**: Individual files for each monitor
+
+### Monitor Layout
+- Monitors are sorted by X position (left to right)
+- Each monitor gets a corresponding section of the input image
+- Supports arbitrary monitor resolutions and arrangements
+
+### DBus Integration
+- Uses `qdbus` to communicate with KDE Plasma
+- JavaScript scripting for wallpaper configuration
+- Automatic refresh triggers to update the desktop
 
 ## Extending for Other Desktop Environments
 
@@ -157,6 +214,51 @@ To add support for other desktop environments (e.g., GNOME, XFCE):
    - Add new targets for the interface
    - Include appropriate dependencies
 
+## Flatpak Details
+
+The Flatpak package includes:
+- **Runtime**: KDE Platform 6.6
+- **Permissions**: Session DBus, filesystem access, network
+- **Icon**: Custom application icon
+- **Desktop Integration**: Proper desktop file and metadata
+
+### Flatpak Permissions
+- `--socket=session-bus`: Access to user's DBus session
+- `--socket=wayland` and `--socket=x11`: Display server access
+- `--filesystem=home`: Access to user's home directory
+- `--talk-name=org.freedesktop.DBus`: DBus communication
+
+## Troubleshooting
+
+### Common Issues
+
+**No monitors detected**:
+- Ensure you're running on a supported display server (X11 or Wayland)
+- Check that Qt can access screen information
+- Verify monitor connections
+
+**Image splitting fails**:
+- Ensure the input image is readable
+- Check that the image is large enough for your monitor setup
+- Verify write permissions in the output directory
+
+**Wallpapers don't change**:
+- Ensure you're running KDE Plasma
+- Check that DBus is accessible (especially in Flatpak)
+- Try running the application multiple times to trigger the alternating prefix system
+
+**Flatpak issues**:
+- Ensure Flatpak is properly installed
+- Check that the KDE Platform runtime is installed
+- Verify that the application has the necessary permissions
+
+### Debug Information
+The application provides detailed debug output including:
+- Monitor detection results
+- Image processing steps
+- DBus script execution
+- File creation and modification times
+
 ## Contributing
 
 1. Fork the repository
@@ -169,38 +271,9 @@ To add support for other desktop environments (e.g., GNOME, XFCE):
 
 This project is licensed under the GPL v3 License - see the LICENSE file for details.
 
-## Troubleshooting
+## Acknowledgments
 
-### Common Issues
-
-**No monitors detected**:
-- Ensure X11 is running
-- Check that RandR extension is available
-- Verify monitor connections
-
-**Image splitting fails**:
-- Ensure ImageMagick is properly installed
-- Check image file permissions
-- Verify image format is supported
-
-**Wallpaper application fails**:
-- Ensure you're running on a supported desktop environment
-- Check that desktop-specific wallpaper tools are installed
-- Verify monitor names match detected outputs
-
-### Debug Mode
-
-Run with debug output:
-```bash
-QT_LOGGING_RULES="*=true" wallpaper-splitter-kde
-```
-
-## Roadmap
-
-- [ ] GNOME Shell support
-- [ ] XFCE support
-- [ ] Wayland support
-- [ ] Automatic wallpaper rotation
-- [ ] Preset configurations
-- [ ] Batch processing
-- [ ] Plugin system for custom wallpaper sources 
+- Built with Qt6 and KDE Frameworks 6
+- Uses Qt's cross-platform screen detection
+- Implements KDE Plasma's DBus wallpaper interface
+- Packaged as Flatpak for easy distribution 

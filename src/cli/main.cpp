@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QCoreApplication>
+#include <QStandardPaths>
 #include "core/monitor_detector.h"
 #include "core/image_splitter.h"
 #include "core/wallpaper_applier.h"
@@ -65,9 +66,15 @@ int main(int argc, char *argv[])
     QString outputDir = parser.value(outputOption);
     
     if (outputDir.isEmpty()) {
-        // Use directory next to executable as default
+        // Use writable location in Flatpak or next to executable as default
         QString appDir = QCoreApplication::applicationDirPath();
-        outputDir = appDir + "/wallpaper-splitter";
+        if (appDir.startsWith("/app/")) {
+            // We're in a Flatpak, use user's home directory
+            outputDir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation) + "/.wallpaper-splitter";
+        } else {
+            // We're not in a Flatpak, use directory next to executable
+            outputDir = appDir + "/wallpaper-splitter";
+        }
     }
     
     // Detect monitors

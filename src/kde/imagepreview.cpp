@@ -34,13 +34,13 @@ void ImagePreview::setImage(const QString& imagePath)
 {
     if (imagePath.isEmpty()) {
         // Load default image when no image is selected
-        QString defaultImagePath = QCoreApplication::applicationDirPath() + "/default-image.jpg";
+        QString defaultImagePath;
         
-        // If we're in a Flatpak, try the app directory
-        if (defaultImagePath.startsWith("/app/")) {
-            defaultImagePath = "/app/default-image.jpg";
-        } else {
-            // Try relative to the executable
+        // Try Flatpak app directory first
+        defaultImagePath = "/app/share/wallpaper-splitter/default-image.jpg";
+        
+        // If not found, try relative to the executable
+        if (!QFile::exists(defaultImagePath)) {
             defaultImagePath = QCoreApplication::applicationDirPath() + "/default-image.jpg";
         }
         

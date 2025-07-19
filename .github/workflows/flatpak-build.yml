@@ -21,8 +21,8 @@ jobs:
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6.5
         with:
           bundle: wallpaper-splitter.flatpak
+          manifest-path: org.wallpapersplitter.app.yml
           cache-key: flatpak-builder-${{ github.sha }}
-          run: build
 
       - name: Upload Flatpak artifact
         uses: actions/upload-artifact@v4

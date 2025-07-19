@@ -129,3 +129,5 @@ coverage/
 # Local configuration
 config.h
 config.h.in
+
+repo

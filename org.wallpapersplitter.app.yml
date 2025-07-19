@@ -34,6 +34,13 @@ modules:
       - /a_wallpaper_*.jpg
       - /b_wallpaper_*.jpg
     modules:
+      - name: default-image
+        buildsystem: simple
+        build-commands:
+          - install -D default-image.jpg /app/share/wallpaper-splitter/default-image.jpg
+        sources:
+          - type: file
+            path: default-image.jpg
       - name: desktop-file
         buildsystem: simple
         build-commands:

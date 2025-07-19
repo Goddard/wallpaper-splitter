@@ -1,0 +1,42 @@
+name: Build Flatpak Package
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [ published ]
+
+jobs:
+  build-flatpak:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v7
+        with:
+          bundle: wallpaper-splitter.flatpak
+          cache-key: flatpak-builder-${{ github.sha }}
+          run: build
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wallpaper-splitter-flatpak
+          path: wallpaper-splitter.flatpak
+          retention-days: 30
+
+      - name: Create Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: wallpaper-splitter.flatpak
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

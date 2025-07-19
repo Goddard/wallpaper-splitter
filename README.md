@@ -2,6 +2,8 @@
 
 A C++ application for splitting wallpapers across multiple monitors with native desktop environment support. Currently supports KDE Plasma with a modular architecture designed for easy extension to other desktop environments.
 
+![Wallpaper Splitter](original-icon-file-transparent.png)
+
 ## Features
 
 - **Multi-Monitor Support**: Automatically detects connected monitors and their layouts using Qt's cross-platform screen detection

@@ -45,7 +45,7 @@ jobs:
           submodules: recursive
 
       - name: Setup Flatpak
-        uses: flatpak/flatpak-github-actions/flatpak-builder@v7
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6.5
         with:
           bundle: wallpaper-splitter.flatpak
           cache-key: flatpak-builder-${{ github.sha }}

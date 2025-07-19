@@ -9,12 +9,19 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 *.cmake
+compile_commands.json
 
 # Qt generated files
 moc_*.cpp
 ui_*.h
 qrc_*.cpp
 *.qm
+*.moc
+
+# Qt build artifacts
+.qt/
+qt_*.cpp
+qt_*.h
 
 # Compiled Object files
 *.slo
@@ -54,6 +61,11 @@ qrc_*.cpp
 *.swo
 *~
 
+# Cache directories
+.cache/
+.cache
+cache/
+
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -92,7 +104,28 @@ original-icon-file-transparent-*.png
 *.rpm
 *.tar.gz
 *.zip
+*.flatpak
 
 # Backup files
 *.bak
 *.backup
+
+# Ninja build files
+.ninja_deps
+.ninja_log
+build.ninja
+
+# KDE/Plasma specific
+*.desktop.bak
+*.desktop~
+
+# Log files
+*.log
+
+# Test output
+test-results/
+coverage/
+
+# Local configuration
+config.h
+config.h.in

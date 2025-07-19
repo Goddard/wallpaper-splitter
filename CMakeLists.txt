@@ -78,15 +78,4 @@ target_link_libraries(wallpaper-splitter-cli
 # Install targets
 install(TARGETS wallpaper-splitter-kde wallpaper-splitter-cli
     RUNTIME DESTINATION bin
-)
-
-# Install desktop file
-install(FILES kde/wallpaper-splitter.desktop
-    DESTINATION share/applications
-)
-
-# Install icons
-install(DIRECTORY kde/icons/
-    DESTINATION share/icons
-    FILES_MATCHING PATTERN "*.png" PATTERN "*.svg"
 ) 

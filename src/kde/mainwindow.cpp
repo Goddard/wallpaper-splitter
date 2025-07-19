@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QDebug>
 #include <QCoreApplication>
+#include <QIcon>
 #include <KLocalizedString>
 #include <KMessageBox>
 
@@ -50,6 +51,19 @@ void MainWindow::setupUI()
 {
     setWindowTitle(i18n("Wallpaper Splitter"));
     setMinimumSize(800, 600);
+    
+    // Set window class to match desktop file
+    setWindowIconText("org.wallpapersplitter.app");
+    
+    // Set application icon - try multiple methods for Wayland compatibility
+    QIcon appIcon;
+    appIcon.addFile("/app/share/icons/hicolor/128x128/apps/org.wallpapersplitter.app.png");
+    if (!appIcon.isNull()) {
+        setWindowIcon(appIcon);
+    } else {
+        // Fallback to theme icon
+        setWindowIcon(QIcon::fromTheme("org.wallpapersplitter.app"));
+    }
     
     m_centralWidget = new QWidget(this);
     setCentralWidget(m_centralWidget);

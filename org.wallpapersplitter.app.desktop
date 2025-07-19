@@ -9,4 +9,4 @@ Icon=org.wallpapersplitter.app
 Terminal=false
 Categories=Graphics;Utility;
 Keywords=wallpaper;monitor;multi-monitor;desktop;
-StartupWMClass=wallpaper-splitter-kde 
+StartupWMClass=org.wallpapersplitter.app 

@@ -1,0 +1,75 @@
+app-id: org.wallpapersplitter.app
+runtime: org.kde.Platform
+runtime-version: '6.6'
+sdk: org.kde.Sdk
+command: wallpaper-splitter-kde
+finish-args:
+  - --share=network
+  - --socket=session-bus
+  - --socket=wayland
+  - --socket=x11
+  - --filesystem=home
+  - --talk-name=org.freedesktop.DBus
+modules:
+  - name: wallpaper-splitter
+    buildsystem: cmake-ninja
+    build-options:
+      strip: true
+    sources:
+      - type: dir
+        path: .
+    cleanup:
+      - /include
+      - /src
+      - /kde
+      - /CMakeLists.txt
+      - /README.md
+      - /build.sh
+      - /referencesplit.sh
+      - /output_*.jpg
+      - /wallpaper_*.jpg
+      - /a_wallpaper_*.jpg
+      - /b_wallpaper_*.jpg
+    modules:
+      - name: desktop-file
+        buildsystem: simple
+        build-commands:
+          - install -D org.wallpapersplitter.app.desktop /app/share/applications/org.wallpapersplitter.app.desktop
+        sources:
+          - type: file
+            path: org.wallpapersplitter.app.desktop
+      - name: appdata
+        buildsystem: simple
+        build-commands:
+          - install -D org.wallpapersplitter.app.metainfo.xml /app/share/metainfo/org.wallpapersplitter.app.metainfo.xml
+        sources:
+          - type: file
+            path: org.wallpapersplitter.app.metainfo.xml
+      - name: icon
+        buildsystem: simple
+        build-commands:
+          - install -D original-icon-file-transparent-16.png /app/share/icons/hicolor/16x16/apps/org.wallpapersplitter.app.png
+          - install -D original-icon-file-transparent-32.png /app/share/icons/hicolor/32x32/apps/org.wallpapersplitter.app.png
+          - install -D original-icon-file-transparent-48.png /app/share/icons/hicolor/48x48/apps/org.wallpapersplitter.app.png
+          - install -D original-icon-file-transparent-64.png /app/share/icons/hicolor/64x64/apps/org.wallpapersplitter.app.png
+          - install -D original-icon-file-transparent-96.png /app/share/icons/hicolor/96x96/apps/org.wallpapersplitter.app.png
+          - install -D original-icon-file-transparent-128.png /app/share/icons/hicolor/128x128/apps/org.wallpapersplitter.app.png
+          - install -D original-icon-file-transparent-256.png /app/share/icons/hicolor/256x256/apps/org.wallpapersplitter.app.png
+          - install -D original-icon-file-transparent-512.png /app/share/icons/hicolor/512x512/apps/org.wallpapersplitter.app.png
+        sources:
+          - type: file
+            path: original-icon-file-transparent-16.png
+          - type: file
+            path: original-icon-file-transparent-32.png
+          - type: file
+            path: original-icon-file-transparent-48.png
+          - type: file
+            path: original-icon-file-transparent-64.png
+          - type: file
+            path: original-icon-file-transparent-96.png
+          - type: file
+            path: original-icon-file-transparent-128.png
+          - type: file
+            path: original-icon-file-transparent-256.png
+          - type: file
+            path: original-icon-file-transparent-512.png 

@@ -15,6 +15,9 @@ modules:
     buildsystem: cmake-ninja
     build-options:
       strip: true
+    rename-icon: true
+    rename-desktop-file: true
+    rename-appdata-file: true
     sources:
       - type: dir
         path: .
@@ -48,14 +51,14 @@ modules:
       - name: icon
         buildsystem: simple
         build-commands:
-          - install -D original-icon-file-transparent-16.png /app/share/icons/hicolor/16x16/apps/org.wallpapersplitter.app.png
-          - install -D original-icon-file-transparent-32.png /app/share/icons/hicolor/32x32/apps/org.wallpapersplitter.app.png
-          - install -D original-icon-file-transparent-48.png /app/share/icons/hicolor/48x48/apps/org.wallpapersplitter.app.png
-          - install -D original-icon-file-transparent-64.png /app/share/icons/hicolor/64x64/apps/org.wallpapersplitter.app.png
-          - install -D original-icon-file-transparent-96.png /app/share/icons/hicolor/96x96/apps/org.wallpapersplitter.app.png
-          - install -D original-icon-file-transparent-128.png /app/share/icons/hicolor/128x128/apps/org.wallpapersplitter.app.png
-          - install -D original-icon-file-transparent-256.png /app/share/icons/hicolor/256x256/apps/org.wallpapersplitter.app.png
-          - install -D original-icon-file-transparent-512.png /app/share/icons/hicolor/512x512/apps/org.wallpapersplitter.app.png
+          - install -Dm644 original-icon-file-transparent-16.png /app/share/icons/hicolor/16x16/apps/org.wallpapersplitter.app.png
+          - install -Dm644 original-icon-file-transparent-32.png /app/share/icons/hicolor/32x32/apps/org.wallpapersplitter.app.png
+          - install -Dm644 original-icon-file-transparent-48.png /app/share/icons/hicolor/48x48/apps/org.wallpapersplitter.app.png
+          - install -Dm644 original-icon-file-transparent-64.png /app/share/icons/hicolor/64x64/apps/org.wallpapersplitter.app.png
+          - install -Dm644 original-icon-file-transparent-96.png /app/share/icons/hicolor/96x96/apps/org.wallpapersplitter.app.png
+          - install -Dm644 original-icon-file-transparent-128.png /app/share/icons/hicolor/128x128/apps/org.wallpapersplitter.app.png
+          - install -Dm644 original-icon-file-transparent-256.png /app/share/icons/hicolor/256x256/apps/org.wallpapersplitter.app.png
+          - install -Dm644 original-icon-file-transparent-512.png /app/share/icons/hicolor/512x512/apps/org.wallpapersplitter.app.png
         sources:
           - type: file
             path: original-icon-file-transparent-16.png

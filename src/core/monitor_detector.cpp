@@ -59,9 +59,9 @@ MonitorList MonitorDetector::detectMonitors()
         // Calculate actual resolution accounting for device pixel ratio
         QSize actualSize = physicalSize * devicePixelRatio;
         
-        // Use actual size for the geometry
-        monitor.geometry = QRect(geometry.x(), geometry.y(), 
-                               actualSize.width(), actualSize.height());
+        // Use logical geometry (not actual size) for positioning
+        monitor.geometry = geometry;
+        monitor.actualResolution = actualSize;
         
         monitor.isPrimary = (i == 0) || screen->geometry().x() == 0; // First screen or leftmost is primary
         

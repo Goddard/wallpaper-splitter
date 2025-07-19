@@ -42,6 +42,7 @@ set(KDE_SOURCES
     src/kde/mainwindow.cpp
     src/kde/monitorwidget.cpp
     src/kde/imagepreview.cpp
+    src/kde/monitoroverlay.cpp
 )
 
 # Process Qt MOC for KDE interface
@@ -49,6 +50,7 @@ qt_wrap_cpp(KDE_MOC
     src/kde/mainwindow.h
     src/kde/monitorwidget.h
     src/kde/imagepreview.h
+    src/kde/monitoroverlay.h
 )
 
 add_executable(wallpaper-splitter-kde

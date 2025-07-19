@@ -4,6 +4,8 @@
 #include <QDebug>
 #include <QCoreApplication>
 #include <QIcon>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <KLocalizedString>
 #include <KMessageBox>
 
@@ -37,9 +39,14 @@ MainWindow::MainWindow(QWidget* parent)
             this, &MainWindow::onWallpaperApplied);
     connect(m_wallpaperApplier, &WallpaperCore::WallpaperApplier::wallpaperFailed,
             this, &MainWindow::onWallpaperFailed);
+    connect(m_imagePreview, &ImagePreview::monitorToggled,
+            this, &MainWindow::onMonitorToggled);
     
     // Initial monitor detection
     refreshMonitors();
+    
+    // Load default image to show monitor layout
+    updateImagePreview();
 }
 
 MainWindow::~MainWindow()
@@ -50,7 +57,7 @@ MainWindow::~MainWindow()
 void MainWindow::setupUI()
 {
     setWindowTitle(i18n("Wallpaper Splitter"));
-    setMinimumSize(800, 600);
+    setMinimumSize(1000, 700);
     
     // Set window class to match desktop file
     setWindowIconText("org.wallpapersplitter.app");
@@ -89,17 +96,9 @@ void MainWindow::setupUI()
     m_progressBar->setVisible(false);
     m_mainLayout->addWidget(m_progressBar);
     
-    // Image preview
+    // Image preview with monitor overlays
     m_imagePreview = new ImagePreview(this);
-    m_mainLayout->addWidget(m_imagePreview);
-    
-    // Monitor widgets
-    m_monitorScrollArea = new QScrollArea(this);
-    m_monitorContainer = new QWidget(this);
-    m_monitorLayout = new QVBoxLayout(m_monitorContainer);
-    m_monitorScrollArea->setWidget(m_monitorContainer);
-    m_monitorScrollArea->setWidgetResizable(true);
-    m_mainLayout->addWidget(m_monitorScrollArea);
+    m_mainLayout->addWidget(m_imagePreview, 1); // Give it more space
     
     // Connect signals
     connect(m_selectImageButton, &QPushButton::clicked, this, &MainWindow::selectImage);
@@ -128,7 +127,14 @@ void MainWindow::selectImage()
 void MainWindow::refreshMonitors()
 {
     m_monitors = m_monitorDetector->detectMonitors();
-    updateMonitorWidgets();
+    
+    // Initialize enabled state for all monitors
+    m_monitorEnabled.clear();
+    for (int i = 0; i < m_monitors.size(); ++i) {
+        m_monitorEnabled.append(true); // All monitors enabled by default
+    }
+    
+    updateImagePreview();
     m_applyButton->setEnabled(!m_selectedImagePath.isEmpty() && !m_monitors.empty());
 }
 
@@ -139,13 +145,19 @@ void MainWindow::applyWallpapers()
         return;
     }
     
+    WallpaperCore::MonitorList enabledMonitors = getEnabledMonitors();
+    if (enabledMonitors.empty()) {
+        KMessageBox::information(this, i18n("Please enable at least one monitor."));
+        return;
+    }
+    
     m_progressBar->setVisible(true);
-    m_progressBar->setRange(0, m_monitors.size());
+    m_progressBar->setRange(0, enabledMonitors.size());
     m_progressBar->setValue(0);
     m_applyButton->setEnabled(false);
     
     // Split the image
-    if (!m_imageSplitter->splitImage(m_selectedImagePath, m_monitors, m_outputDir)) {
+    if (!m_imageSplitter->splitImage(m_selectedImagePath, enabledMonitors, m_outputDir)) {
         KMessageBox::error(this, i18n("Failed to split image for monitors."));
         m_progressBar->setVisible(false);
         m_applyButton->setEnabled(true);
@@ -153,12 +165,12 @@ void MainWindow::applyWallpapers()
     }
     
     // Set wallpaper paths for each monitor to use individual split images with index-based naming
-    for (int i = 0; i < m_monitors.size(); ++i) {
-        m_monitors[i].wallpaperPath = m_outputDir + QString("/wallpaper_%1.jpg").arg(i);
+    for (size_t i = 0; i < enabledMonitors.size(); ++i) {
+        enabledMonitors[i].wallpaperPath = m_outputDir + QString("/wallpaper_%1.jpg").arg(i);
     }
     
     // Apply wallpapers
-    bool success = m_wallpaperApplier->applyWallpapers(m_monitors);
+    bool success = m_wallpaperApplier->applyWallpapers(enabledMonitors);
     
     m_progressBar->setVisible(false);
     m_applyButton->setEnabled(true);
@@ -187,25 +199,34 @@ void MainWindow::onWallpaperFailed(const WallpaperCore::MonitorInfo& monitor, co
     qWarning() << "Failed to apply wallpaper to monitor" << monitor.name << ":" << error;
 }
 
-void MainWindow::updateMonitorWidgets()
+void MainWindow::onMonitorToggled(int monitorIndex, bool enabled)
 {
-    // Clear existing widgets
-    QLayoutItem* item;
-    while ((item = m_monitorLayout->takeAt(0)) != nullptr) {
-        delete item->widget();
-        delete item;
-    }
-    
-    // Add monitor widgets
-    for (const auto& monitor : m_monitors) {
-        MonitorWidget* widget = new MonitorWidget(monitor, this);
-        m_monitorLayout->addWidget(widget);
+    if (monitorIndex >= 0 && monitorIndex < m_monitorEnabled.size()) {
+        m_monitorEnabled[monitorIndex] = enabled;
+        m_applyButton->setEnabled(!m_selectedImagePath.isEmpty() && getEnabledMonitors().size() > 0);
     }
 }
+
+
 
 void MainWindow::updateImagePreview()
 {
     if (!m_selectedImagePath.isEmpty()) {
         m_imagePreview->setImage(m_selectedImagePath);
+    } else {
+        // Load default image to show monitor layout
+        m_imagePreview->setImage(QString());
     }
+    m_imagePreview->setMonitors(m_monitors);
+}
+
+WallpaperCore::MonitorList MainWindow::getEnabledMonitors() const
+{
+    WallpaperCore::MonitorList enabledMonitors;
+    for (size_t i = 0; i < m_monitors.size(); ++i) {
+        if (m_monitorEnabled.value(static_cast<int>(i), true)) {
+            enabledMonitors.push_back(m_monitors[i]);
+        }
+    }
+    return enabledMonitors;
 } 

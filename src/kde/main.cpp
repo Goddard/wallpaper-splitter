@@ -2,6 +2,8 @@
 #include <QCommandLineParser>
 #include <QCommandLineOption>
 #include <QIcon>
+#include <QFile>
+#include <QDebug>
 #include <KLocalizedString>
 #include <KAboutData>
 #include "mainwindow.h"

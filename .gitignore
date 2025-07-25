@@ -130,3 +130,5 @@ config.h
 config.h.in
 
 repo
+
+scripts

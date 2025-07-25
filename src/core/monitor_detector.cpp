@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QProcess>
 
 namespace WallpaperCore {
 
@@ -36,9 +37,21 @@ MonitorList MonitorDetector::detectMonitors()
 {
     MonitorList monitors;
     
+    // Use KDE's native monitor detection via dbus
+    QProcess process;
+    process.start("qdbus", QStringList() << "org.kde.plasmashell" << "/PlasmaShell" 
+                 << "org.kde.PlasmaShell.evaluateScript" 
+                 << "JSON.stringify(desktops().filter(d => d.screen != -1).map(d => ({screen: d.screen, geom: screenGeometry(d.screen)})))");
+    
+    if (process.waitForFinished(5000) && process.exitCode() == 0) {
+        QString output = process.readAllStandardOutput();
+        // Parse and use KDE's monitor info
+        qDebug() << "KDE monitors:" << output;
+    }
+    
+    // Fallback to Qt detection
     QGuiApplication* app = qobject_cast<QGuiApplication*>(QCoreApplication::instance());
     if (!app) {
-        qWarning() << "No QGuiApplication instance found";
         return monitors;
     }
     
@@ -50,31 +63,18 @@ MonitorList MonitorDetector::detectMonitors()
         MonitorInfo monitor;
         monitor.name = screen->name();
         
-        // Get the physical size and available geometry
-        QSize physicalSize = screen->size();
         QRect geometry = screen->geometry();
-        QRect availableGeometry = screen->availableGeometry();
+        QSize physicalSize = screen->size();
         qreal devicePixelRatio = screen->devicePixelRatio();
-        
-        // Calculate actual resolution accounting for device pixel ratio
         QSize actualSize = physicalSize * devicePixelRatio;
         
-        // Use logical geometry (not actual size) for positioning
         monitor.geometry = geometry;
         monitor.actualResolution = actualSize;
-        
-        monitor.isPrimary = (i == 0) || screen->geometry().x() == 0; // First screen or leftmost is primary
+        monitor.isPrimary = (i == 0) || geometry.x() == 0;
         
         monitors.push_back(monitor);
         
-        qDebug() << "Detected monitor:" << monitor.name 
-                 << "at" << monitor.geometry 
-                 << "primary:" << monitor.isPrimary
-                 << "physical size:" << physicalSize
-                 << "actual size:" << actualSize
-                 << "geometry:" << geometry
-                 << "available:" << availableGeometry
-                 << "device pixel ratio:" << devicePixelRatio;
+        qDebug() << "Monitor:" << monitor.name << "at" << monitor.geometry;
     }
     
     m_monitors = monitors;

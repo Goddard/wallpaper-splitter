@@ -70,10 +70,23 @@ bool WallpaperApplier::applyWallpapers(const MonitorList& monitors)
                   return a.geometry.x() < b.geometry.x();
               });
     
+    // Filter out disabled monitors (those with empty wallpaperPath)
+    MonitorList enabledMonitors;
+    for (const auto& monitor : sortedMonitors) {
+        if (!monitor.wallpaperPath.isEmpty()) {
+            enabledMonitors.push_back(monitor);
+        }
+    }
+    
+    if (enabledMonitors.empty()) {
+        qDebug() << "No enabled monitors found";
+        return false;
+    }
+    
     // Determine which prefix to use (use the most recently created files)
     QString outputDir;
-    if (!sortedMonitors.empty() && !sortedMonitors[0].wallpaperPath.isEmpty()) {
-        QFileInfo fileInfo(sortedMonitors[0].wallpaperPath);
+    if (!enabledMonitors.empty() && !enabledMonitors[0].wallpaperPath.isEmpty()) {
+        QFileInfo fileInfo(enabledMonitors[0].wallpaperPath);
         outputDir = fileInfo.absolutePath();
     } else {
         outputDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/wallpaper-splitter";
@@ -105,60 +118,58 @@ bool WallpaperApplier::applyWallpapers(const MonitorList& monitors)
         qDebug() << "No prefix files found, using a_ prefix";
     }
     
-    // Build the JavaScript script to set wallpapers
-    QString script = R"(
-function getDesktops() {
-    return desktops()
-        .filter(d => d.screen != -1)
-        .sort((a, b) => screenGeometry(a.screen).left - screenGeometry(b.screen).left);
-}
-
-function setWallpaper(desktop, path) {
-    desktop.wallpaperPlugin = "org.kde.image"
-    desktop.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General")
-    desktop.writeConfig("Image", path)
-    // Force a reload to trigger wallpaperChanged signal
-    desktop.reloadConfig()
-}
-
-const imageList = [)";
+    // Build a simpler JavaScript script that works reliably
+    QString script = QString(R"(
+const ds = desktops();
+const enabledMonitors = [
+)");
     
-    // Add image paths to the script in the correct order (left to right)
-    // Use alternating prefix naming: a_wallpaper_0.jpg or b_wallpaper_0.jpg
-    QStringList imagePaths;
-    for (int i = 0; i < sortedMonitors.size(); ++i) {
-        const auto& monitor = sortedMonitors[i];
-        // Get the output directory from the first monitor's wallpaper path
-        QString outputDir;
-        if (!monitor.wallpaperPath.isEmpty()) {
-            QFileInfo fileInfo(monitor.wallpaperPath);
-            outputDir = fileInfo.absolutePath();
-        } else {
-            // Fallback: use a default directory
-            outputDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/wallpaper-splitter";
-        }
+    // Add monitor geometry mappings
+    for (int i = 0; i < enabledMonitors.size(); ++i) {
+        const auto& monitor = enabledMonitors[i];
+        QString key = QString("'%1x%2+%3+%4'")
+            .arg(monitor.geometry.width())
+            .arg(monitor.geometry.height())
+            .arg(monitor.geometry.x())
+            .arg(monitor.geometry.y());
+        QString imagePath = QString("'file://%1/%2wallpaper_%3.jpg'")
+            .arg(outputDir).arg(prefix).arg(i);
         
-        QString imagePath = QString("%1/%2wallpaper_%3.jpg").arg(outputDir).arg(prefix).arg(i);
-        imagePaths.append(QString("'file://%1'").arg(imagePath));
+        script += QString("  { key: %1, image: %2, index: %3 },\n")
+            .arg(key).arg(imagePath).arg(i);
     }
     
-    script += imagePaths.join(",") + R"(];
+    script += R"(];
 
-// Apply wallpapers in order: leftmost (index 0) gets image 0, middle (index 1) gets image 1, rightmost (index 2) gets image 2
-getDesktops().forEach((desktop, i) => {
-    if (i < imageList.length) {
-        setWallpaper(desktop, imageList[i]);
+// Apply wallpapers based on geometry matching
+for (let i = 0; i < ds.length; i++) {
+    const desktop = ds[i];
+    const geom = screenGeometry(desktop.screen);
+    const key = geom.width + 'x' + geom.height + '+' + geom.left + '+' + geom.top;
+    
+    for (let j = 0; j < enabledMonitors.length; j++) {
+        const monitor = enabledMonitors[j];
+        if (monitor.key === key) {
+            desktop.wallpaperPlugin = 'org.kde.image';
+            desktop.currentConfigGroup = Array('Wallpaper', 'org.kde.image', 'General');
+            desktop.writeConfig('Image', monitor.image);
+            desktop.reloadConfig();
+            print('Applied wallpaper to desktop ' + i + ' (screen ' + desktop.screen + '): ' + monitor.image);
+            break;
+        }
     }
-});
+}
 )";
     
     qDebug() << "Executing DBus script to set wallpapers...";
     qDebug() << "Using prefix:" << prefix;
-    qDebug() << "Monitors in order (left to right):";
-    for (int i = 0; i < sortedMonitors.size(); ++i) {
-        qDebug() << "  " << i << ":" << sortedMonitors[i].name << "at x=" << sortedMonitors[i].geometry.x();
+    qDebug() << "Enabled monitors in order (left to right):";
+    for (int i = 0; i < enabledMonitors.size(); ++i) {
+        qDebug() << "  " << i << ":" << enabledMonitors[i].name 
+                 << "at x=" << enabledMonitors[i].geometry.x()
+                 << "y=" << enabledMonitors[i].geometry.y()
+                 << "size=" << enabledMonitors[i].geometry.width() << "x" << enabledMonitors[i].geometry.height();
     }
-    qDebug() << "Image paths in order:" << imagePaths;
     
     // Execute the script via DBus
     QProcess process;
@@ -215,4 +226,4 @@ QString WallpaperApplier::getDesktopEnvironment()
     return desktop;
 }
 
-} // namespace WallpaperCore 
+} // namespace WallpaperCore

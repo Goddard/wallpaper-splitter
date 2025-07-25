@@ -18,13 +18,13 @@ echo "Creating build directory..."
 mkdir -p build
 cd build
 
-# Configure with CMake
+# Configure with CMake (using Ninja generator)
 echo "Configuring with CMake..."
-cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release -G Ninja
 
 # Build
 echo "Building..."
-make -j$(nproc)
+ninja
 
 echo "=== Build completed successfully! ==="
 echo ""
@@ -33,4 +33,4 @@ echo "  GUI: ./wallpaper-splitter-kde"
 echo "  CLI: ./wallpaper-splitter-cli"
 echo ""
 echo "To install system-wide, run:"
-echo "  sudo make install" 
+echo "  sudo ninja install" 

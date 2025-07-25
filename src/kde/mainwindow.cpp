@@ -14,6 +14,7 @@ MainWindow::MainWindow(QWidget* parent)
     , m_monitorDetector(nullptr)
     , m_imageSplitter(nullptr)
     , m_wallpaperApplier(nullptr)
+    , m_autoChangeEnabled(false)
 {
     // Initialize core components
     m_monitorDetector = new WallpaperCore::MonitorDetector(this);
@@ -41,6 +42,16 @@ MainWindow::MainWindow(QWidget* parent)
             this, &MainWindow::onWallpaperFailed);
     connect(m_imagePreview, &ImagePreview::monitorToggled,
             this, &MainWindow::onMonitorToggled);
+    connect(m_imageGallery, &ImageGallery::imageSelected,
+            this, &MainWindow::onImageSelected);
+    connect(m_imageGallery, &ImageGallery::autoChangeToggled,
+            this, &MainWindow::onAutoChangeToggled);
+    
+    // Setup system tray
+    setupSystemTray();
+    
+    // Load saved monitor states
+    loadMonitorStates();
     
     // Initial monitor detection
     refreshMonitors();
@@ -51,6 +62,8 @@ MainWindow::MainWindow(QWidget* parent)
 
 MainWindow::~MainWindow()
 {
+    // Save monitor states before destruction
+    saveMonitorStates();
     delete m_imageSplitter;
 }
 
@@ -79,14 +92,11 @@ void MainWindow::setupUI()
     
     // Top controls
     m_topLayout = new QHBoxLayout();
-    m_selectImageButton = new QPushButton(i18n("Select Image"), this);
-    m_imagePathLabel = new QLabel(i18n("No image selected"), this);
     m_refreshMonitorsButton = new QPushButton(i18n("Refresh Monitors"), this);
     m_applyButton = new QPushButton(i18n("Apply Wallpapers"), this);
     
-    m_topLayout->addWidget(m_selectImageButton);
-    m_topLayout->addWidget(m_imagePathLabel, 1);
     m_topLayout->addWidget(m_refreshMonitorsButton);
+    m_topLayout->addStretch();
     m_topLayout->addWidget(m_applyButton);
     
     m_mainLayout->addLayout(m_topLayout);
@@ -96,12 +106,15 @@ void MainWindow::setupUI()
     m_progressBar->setVisible(false);
     m_mainLayout->addWidget(m_progressBar);
     
+    // Image gallery
+    m_imageGallery = new ImageGallery(this);
+    m_mainLayout->addWidget(m_imageGallery);
+    
     // Image preview with monitor overlays
     m_imagePreview = new ImagePreview(this);
     m_mainLayout->addWidget(m_imagePreview, 1); // Give it more space
     
     // Connect signals
-    connect(m_selectImageButton, &QPushButton::clicked, this, &MainWindow::selectImage);
     connect(m_refreshMonitorsButton, &QPushButton::clicked, this, &MainWindow::refreshMonitors);
     connect(m_applyButton, &QPushButton::clicked, this, &MainWindow::applyWallpapers);
     
@@ -109,30 +122,29 @@ void MainWindow::setupUI()
     m_applyButton->setEnabled(false);
 }
 
-void MainWindow::selectImage()
-{
-    QString fileName = QFileDialog::getOpenFileName(this,
-        i18n("Select Wallpaper Image"),
-        QStandardPaths::writableLocation(QStandardPaths::PicturesLocation),
-        i18n("Image Files (*.png *.jpg *.jpeg *.bmp *.gif)"));
-    
-    if (!fileName.isEmpty()) {
-        m_selectedImagePath = fileName;
-        m_imagePathLabel->setText(QFileInfo(fileName).fileName());
-        updateImagePreview();
-        m_applyButton->setEnabled(!m_monitors.empty());
-    }
-}
+
 
 void MainWindow::refreshMonitors()
 {
+    // Store current monitor enabled state before refreshing
+    QVector<bool> oldMonitorEnabled = m_monitorEnabled;
+    
     m_monitors = m_monitorDetector->detectMonitors();
     
-    // Initialize enabled state for all monitors
+    // Preserve enabled state for existing monitors, enable new ones by default
     m_monitorEnabled.clear();
     for (int i = 0; i < m_monitors.size(); ++i) {
-        m_monitorEnabled.append(true); // All monitors enabled by default
+        // If this monitor index existed before, preserve its state
+        if (i < oldMonitorEnabled.size()) {
+            m_monitorEnabled.append(oldMonitorEnabled[i]);
+        } else {
+            // New monitor, enable by default
+            m_monitorEnabled.append(true);
+        }
     }
+    
+    // Save the updated monitor states after refresh
+    saveMonitorStates();
     
     updateImagePreview();
     m_applyButton->setEnabled(!m_selectedImagePath.isEmpty() && !m_monitors.empty());
@@ -141,13 +153,15 @@ void MainWindow::refreshMonitors()
 void MainWindow::applyWallpapers()
 {
     if (m_selectedImagePath.isEmpty() || m_monitors.empty()) {
-        KMessageBox::information(this, i18n("Please select an image and ensure monitors are detected."));
+        // Don't show popup for auto-change, just log and return
+        qDebug() << "Cannot apply wallpapers: No image selected or no monitors detected";
         return;
     }
     
     WallpaperCore::MonitorList enabledMonitors = getEnabledMonitors();
     if (enabledMonitors.empty()) {
-        KMessageBox::information(this, i18n("Please enable at least one monitor."));
+        // Don't show popup for auto-change, just log and return
+        qDebug() << "Cannot apply wallpapers: No monitors enabled";
         return;
     }
     
@@ -175,10 +189,11 @@ void MainWindow::applyWallpapers()
     m_progressBar->setVisible(false);
     m_applyButton->setEnabled(true);
     
+    // Log the result to console instead of showing popup
     if (success) {
-        KMessageBox::information(this, i18n("Wallpapers applied successfully!"));
+        qDebug() << "Wallpapers applied successfully!";
     } else {
-        KMessageBox::information(this, i18n("Some wallpapers failed to apply. Check the console for details."));
+        qWarning() << "Some wallpapers failed to apply. Check the console for details.";
     }
 }
 
@@ -204,6 +219,9 @@ void MainWindow::onMonitorToggled(int monitorIndex, bool enabled)
     if (monitorIndex >= 0 && monitorIndex < m_monitorEnabled.size()) {
         m_monitorEnabled[monitorIndex] = enabled;
         m_applyButton->setEnabled(!m_selectedImagePath.isEmpty() && getEnabledMonitors().size() > 0);
+        
+        // Save the updated monitor states
+        saveMonitorStates();
     }
 }
 
@@ -217,16 +235,151 @@ void MainWindow::updateImagePreview()
         // Load default image to show monitor layout
         m_imagePreview->setImage(QString());
     }
-    m_imagePreview->setMonitors(m_monitors);
+    
+    // Pass the current monitor enabled states
+    m_imagePreview->setMonitors(m_monitors, m_monitorEnabled);
 }
 
 WallpaperCore::MonitorList MainWindow::getEnabledMonitors() const
 {
     WallpaperCore::MonitorList enabledMonitors;
     for (size_t i = 0; i < m_monitors.size(); ++i) {
-        if (m_monitorEnabled.value(static_cast<int>(i), true)) {
+        if (i < m_monitorEnabled.size() && m_monitorEnabled[static_cast<int>(i)]) {
             enabledMonitors.push_back(m_monitors[i]);
         }
     }
     return enabledMonitors;
+}
+
+void MainWindow::setupSystemTray()
+{
+    // Create system tray icon
+    m_systemTray = new QSystemTrayIcon(this);
+    
+    // Set tray icon - use the same icon as the window
+    QIcon trayIcon;
+    trayIcon.addFile("/app/share/icons/hicolor/128x128/apps/org.wallpapersplitter.app.png");
+    if (trayIcon.isNull()) {
+        trayIcon = QIcon::fromTheme("org.wallpapersplitter.app");
+    }
+    if (trayIcon.isNull()) {
+        trayIcon = QIcon::fromTheme("applications-graphics");
+    }
+    m_systemTray->setIcon(trayIcon);
+    
+    // Create tray menu
+    m_trayMenu = new QMenu();
+    
+    // Add menu actions
+    QAction* showAction = new QAction(i18n("Show"), this);
+    QAction* quitAction = new QAction(i18n("Quit"), this);
+    
+    m_trayMenu->addAction(showAction);
+    m_trayMenu->addSeparator();
+    m_trayMenu->addAction(quitAction);
+    
+    // Connect actions
+    connect(showAction, &QAction::triggered, this, &QWidget::show);
+    connect(showAction, &QAction::triggered, this, &QWidget::raise);
+    connect(showAction, &QAction::triggered, this, &QWidget::activateWindow);
+    connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
+    
+    // Set tray menu
+    m_systemTray->setContextMenu(m_trayMenu);
+    
+    // Connect tray icon signals
+    connect(m_systemTray, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
+        if (reason == QSystemTrayIcon::Trigger) {
+            show();
+            raise();
+            activateWindow();
+        }
+    });
+    
+    // Show tray icon
+    m_systemTray->show();
+    
+    // Set tooltip
+    m_systemTray->setToolTip(i18n("Wallpaper Splitter"));
+}
+
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    // Save monitor states before hiding
+    saveMonitorStates();
+    
+    // Hide the window instead of closing
+    hide();
+    event->ignore();
+    
+    // Show notification that app is still running
+    if (m_systemTray->isVisible()) {
+        m_systemTray->showMessage(
+            i18n("Wallpaper Splitter"),
+            i18n("Application minimized to system tray. Left-click to show, right-click to quit."),
+            QSystemTrayIcon::Information,
+            3000
+        );
+    }
+}
+
+void MainWindow::onImageSelected(const QString& imagePath)
+{
+    m_selectedImagePath = imagePath;
+    updateImagePreview();
+    m_applyButton->setEnabled(!imagePath.isEmpty() && !m_monitors.empty());
+    
+    // If auto-change is enabled, automatically apply the new wallpaper
+    if (m_autoChangeEnabled && !imagePath.isEmpty() && !m_monitors.empty()) {
+        applyWallpapers();
+    }
+}
+
+void MainWindow::onAutoChangeToggled(bool enabled)
+{
+    m_autoChangeEnabled = enabled;
+    
+    if (enabled) {
+        // Auto-change is enabled, apply wallpapers if we have an image and monitors
+        if (!m_selectedImagePath.isEmpty() && !m_monitors.empty()) {
+            applyWallpapers();
+        }
+    }
+}
+
+void MainWindow::saveMonitorStates()
+{
+    QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/wallpaper-splitter/monitors.conf";
+    
+    // Ensure config directory exists
+    QDir configDir = QFileInfo(configPath).absoluteDir();
+    if (!configDir.exists()) {
+        configDir.mkpath(".");
+    }
+    
+    QSettings settings(configPath, QSettings::IniFormat);
+    
+    // Save monitor enabled states
+    for (int i = 0; i < m_monitorEnabled.size(); ++i) {
+        settings.setValue(QString("monitors/enabled_%1").arg(i), m_monitorEnabled[i]);
+    }
+    
+    // Save the number of monitors for validation
+    settings.setValue("monitors/count", m_monitorEnabled.size());
+}
+
+void MainWindow::loadMonitorStates()
+{
+    QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/wallpaper-splitter/monitors.conf";
+    QSettings settings(configPath, QSettings::IniFormat);
+    
+    // Load saved monitor states
+    int savedCount = settings.value("monitors/count", 0).toInt();
+    
+    // Pre-populate with default enabled state
+    m_monitorEnabled.clear();
+    for (int i = 0; i < savedCount; ++i) {
+        bool enabled = settings.value(QString("monitors/enabled_%1").arg(i), true).toBool();
+        m_monitorEnabled.append(enabled);
+    }
 } 

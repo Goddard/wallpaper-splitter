@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(wallpaper-splitter VERSION 1.0.0 LANGUAGES CXX)
 
+# Enable compile commands export for IDE support
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -43,6 +46,7 @@ set(KDE_SOURCES
     src/kde/monitorwidget.cpp
     src/kde/imagepreview.cpp
     src/kde/monitoroverlay.cpp
+    src/kde/imagegallery.cpp
 )
 
 # Process Qt MOC for KDE interface
@@ -51,6 +55,7 @@ qt_wrap_cpp(KDE_MOC
     src/kde/monitorwidget.h
     src/kde/imagepreview.h
     src/kde/monitoroverlay.h
+    src/kde/imagegallery.h
 )
 
 add_executable(wallpaper-splitter-kde

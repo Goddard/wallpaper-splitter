@@ -10,7 +10,7 @@ class MonitorOverlay : public QWidget {
     Q_OBJECT
 
 public:
-    explicit MonitorOverlay(const WallpaperCore::MonitorInfo& monitor, int index, QWidget* parent = nullptr);
+    explicit MonitorOverlay(const WallpaperCore::MonitorInfo& monitor, int index, bool enabled = true, QWidget* parent = nullptr);
 
     void setGeometry(const QRect& geometry);
     bool isEnabled() const;

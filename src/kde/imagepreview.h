@@ -17,7 +17,7 @@ public:
 
 public slots:
     void setImage(const QString& imagePath);
-    void setMonitors(const WallpaperCore::MonitorList& monitors);
+    void setMonitors(const WallpaperCore::MonitorList& monitors, const QVector<bool>& enabledStates = QVector<bool>());
     void updateMonitorOverlays();
 
 signals:

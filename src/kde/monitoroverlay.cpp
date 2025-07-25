@@ -6,7 +6,7 @@
 #include <QApplication>
 #include <KLocalizedString>
 
-MonitorOverlay::MonitorOverlay(const WallpaperCore::MonitorInfo& monitor, int index, QWidget* parent)
+MonitorOverlay::MonitorOverlay(const WallpaperCore::MonitorInfo& monitor, int index, bool enabled, QWidget* parent)
     : QWidget(parent)
     , m_monitor(monitor)
     , m_index(index)
@@ -22,7 +22,7 @@ MonitorOverlay::MonitorOverlay(const WallpaperCore::MonitorInfo& monitor, int in
     
     // Checkbox for enable/disable
     m_checkBox = new QCheckBox(this);
-    m_checkBox->setChecked(true);
+    m_checkBox->setChecked(enabled);
     m_checkBox->setText(QString::number(index + 1));
     m_checkBox->setStyleSheet("QCheckBox { color: white; font-weight: bold; }");
     layout->addWidget(m_checkBox);

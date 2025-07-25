@@ -80,7 +80,7 @@ void ImagePreview::setImage(const QString& imagePath)
     updateOverlayPositions();
 }
 
-void ImagePreview::setMonitors(const WallpaperCore::MonitorList& monitors)
+void ImagePreview::setMonitors(const WallpaperCore::MonitorList& monitors, const QVector<bool>& enabledStates)
 {
     m_monitors = monitors;
     
@@ -92,7 +92,12 @@ void ImagePreview::setMonitors(const WallpaperCore::MonitorList& monitors)
     
     // Create new overlays
     for (size_t i = 0; i < monitors.size(); ++i) {
-        MonitorOverlay* overlay = new MonitorOverlay(monitors[i], static_cast<int>(i), m_overlayContainer);
+        bool enabled = true; // Default to enabled
+        if (!enabledStates.isEmpty() && i < enabledStates.size()) {
+            enabled = enabledStates[i];
+        }
+        
+        MonitorOverlay* overlay = new MonitorOverlay(monitors[i], static_cast<int>(i), enabled, m_overlayContainer);
         connect(overlay, &MonitorOverlay::toggled, this, &ImagePreview::monitorToggled);
         m_overlays.append(overlay);
     }

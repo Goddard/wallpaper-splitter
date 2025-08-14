@@ -44,6 +44,8 @@ private:
     WallpaperCore::MonitorList getEnabledMonitors() const;
     void saveMonitorStates();
     void loadMonitorStates();
+    void saveApplicationState();
+    void loadApplicationState();
 
     // Core components
     WallpaperCore::MonitorDetector* m_monitorDetector;

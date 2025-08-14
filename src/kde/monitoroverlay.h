@@ -15,6 +15,7 @@ public:
     void setGeometry(const QRect& geometry);
     bool isEnabled() const;
     int getIndex() const { return m_index; }
+    void setSingleMonitorMode(bool singleMode);
 
 signals:
     void toggled(int index, bool enabled);

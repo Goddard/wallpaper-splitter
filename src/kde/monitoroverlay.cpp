@@ -57,6 +57,19 @@ bool MonitorOverlay::isEnabled() const
     return m_checkBox->isChecked();
 }
 
+void MonitorOverlay::setSingleMonitorMode(bool singleMode)
+{
+    if (singleMode) {
+        // Update the info label to show single monitor mode
+        m_infoLabel->setText(i18n("Single Monitor Mode\n(No splitting)"));
+        m_infoLabel->setStyleSheet("QLabel { color: white; font-size: 12px; font-weight: bold; background: transparent; }");
+    } else {
+        // Reset to normal display
+        m_infoLabel->setText(QString("%1x%2").arg(m_monitor.actualResolution.width()).arg(m_monitor.actualResolution.height()));
+        m_infoLabel->setStyleSheet("QLabel { color: white; font-size: 10px; background: transparent; }");
+    }
+}
+
 void MonitorOverlay::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);

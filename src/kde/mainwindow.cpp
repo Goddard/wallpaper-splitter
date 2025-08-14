@@ -50,11 +50,17 @@ MainWindow::MainWindow(QWidget* parent)
     // Setup system tray
     setupSystemTray();
     
-    // Load saved monitor states
+    // Load saved states
     loadMonitorStates();
+    loadApplicationState();
     
     // Initial monitor detection
     refreshMonitors();
+    
+    // Restore auto-change state to image gallery
+    if (m_autoChangeEnabled) {
+        m_imageGallery->setAutoChangeEnabled(true);
+    }
     
     // Load default image to show monitor layout
     updateImagePreview();
@@ -170,21 +176,38 @@ void MainWindow::applyWallpapers()
     m_progressBar->setValue(0);
     m_applyButton->setEnabled(false);
     
-    // Split the image
-    if (!m_imageSplitter->splitImage(m_selectedImagePath, enabledMonitors, m_outputDir)) {
-        KMessageBox::error(this, i18n("Failed to split image for monitors."));
-        m_progressBar->setVisible(false);
-        m_applyButton->setEnabled(true);
-        return;
-    }
+    bool success = false;
     
-    // Set wallpaper paths for each monitor to use individual split images with index-based naming
-    for (size_t i = 0; i < enabledMonitors.size(); ++i) {
-        enabledMonitors[i].wallpaperPath = m_outputDir + QString("/wallpaper_%1.jpg").arg(i);
+    // Check if we have only one monitor - if so, apply the image directly without splitting
+    if (enabledMonitors.size() == 1) {
+        qDebug() << "Single monitor detected - applying image directly without splitting";
+        
+        // For single monitor, we can apply the original image directly
+        // Set the wallpaper path to the original image
+        enabledMonitors[0].wallpaperPath = m_selectedImagePath;
+        
+        // Apply wallpaper directly
+        success = m_wallpaperApplier->applyWallpapers(enabledMonitors);
+    } else {
+        // Multiple monitors - split the image as before
+        qDebug() << "Multiple monitors detected - splitting image for" << enabledMonitors.size() << "monitors";
+        
+        // Split the image
+        if (!m_imageSplitter->splitImage(m_selectedImagePath, enabledMonitors, m_outputDir)) {
+            KMessageBox::error(this, i18n("Failed to split image for monitors."));
+            m_progressBar->setVisible(false);
+            m_applyButton->setEnabled(true);
+            return;
+        }
+        
+        // Set wallpaper paths for each monitor to use individual split images with index-based naming
+        for (size_t i = 0; i < enabledMonitors.size(); ++i) {
+            enabledMonitors[i].wallpaperPath = m_outputDir + QString("/wallpaper_%1.jpg").arg(i);
+        }
+        
+        // Apply wallpapers
+        success = m_wallpaperApplier->applyWallpapers(enabledMonitors);
     }
-    
-    // Apply wallpapers
-    bool success = m_wallpaperApplier->applyWallpapers(enabledMonitors);
     
     m_progressBar->setVisible(false);
     m_applyButton->setEnabled(true);
@@ -305,22 +328,13 @@ void MainWindow::setupSystemTray()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
-    // Save monitor states before hiding
+    // Save all states before hiding
     saveMonitorStates();
+    saveApplicationState();
     
     // Hide the window instead of closing
     hide();
     event->ignore();
-    
-    // Show notification that app is still running
-    if (m_systemTray->isVisible()) {
-        m_systemTray->showMessage(
-            i18n("Wallpaper Splitter"),
-            i18n("Application minimized to system tray. Left-click to show, right-click to quit."),
-            QSystemTrayIcon::Information,
-            3000
-        );
-    }
 }
 
 void MainWindow::onImageSelected(const QString& imagePath)
@@ -338,6 +352,9 @@ void MainWindow::onImageSelected(const QString& imagePath)
 void MainWindow::onAutoChangeToggled(bool enabled)
 {
     m_autoChangeEnabled = enabled;
+    
+    // Save the auto-change state
+    saveApplicationState();
     
     if (enabled) {
         // Auto-change is enabled, apply wallpapers if we have an image and monitors
@@ -382,4 +399,35 @@ void MainWindow::loadMonitorStates()
         bool enabled = settings.value(QString("monitors/enabled_%1").arg(i), true).toBool();
         m_monitorEnabled.append(enabled);
     }
+}
+
+void MainWindow::saveApplicationState()
+{
+    QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/wallpaper-splitter/application.conf";
+    
+    // Ensure config directory exists
+    QDir configDir = QFileInfo(configPath).absoluteDir();
+    if (!configDir.exists()) {
+        configDir.mkpath(".");
+    }
+    
+    QSettings settings(configPath, QSettings::IniFormat);
+    
+    // Save auto-change state
+    settings.setValue("autoChange/enabled", m_autoChangeEnabled);
+    
+    // Save selected image path
+    settings.setValue("image/selectedPath", m_selectedImagePath);
+}
+
+void MainWindow::loadApplicationState()
+{
+    QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/wallpaper-splitter/application.conf";
+    QSettings settings(configPath, QSettings::IniFormat);
+    
+    // Load auto-change state
+    m_autoChangeEnabled = settings.value("autoChange/enabled", false).toBool();
+    
+    // Load selected image path
+    m_selectedImagePath = settings.value("image/selectedPath", "").toString();
 } 

@@ -11,8 +11,11 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <KLocalizedString>
+#include <QCryptographicHash>
+#include <QFile>
 
 const QString ImageGallery::CONFIG_FILE = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/wallpaper-splitter/gallery.conf";
+const QString ImageGallery::THUMBNAIL_DIR = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/wallpaper-splitter/thumbnails";
 
 // ImageGalleryItem implementation
 ImageGalleryItem::ImageGalleryItem(const QString& imagePath, QWidget* parent)
@@ -30,10 +33,19 @@ ImageGalleryItem::ImageGalleryItem(const QString& imagePath, QWidget* parent)
     imageContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     imageContainer->setMinimumHeight(180);
     
+    // Get the thumbnail path for display
+    QString displayPath = imagePath;
+    if (parent) {
+        ImageGallery* gallery = qobject_cast<ImageGallery*>(parent->parent());
+        if (gallery) {
+            displayPath = gallery->generateThumbnail(imagePath);
+        }
+    }
+    
     // Set the image as the background of the container with better styling
-    QPixmap pixmap(imagePath);
+    QPixmap pixmap(displayPath);
     if (!pixmap.isNull()) {
-        imageContainer->setStyleSheet(QString("QWidget { background-image: url(%1); background-position: center; background-repeat: no-repeat; border: 2px solid #ddd; border-radius: 8px; }").arg(imagePath));
+        imageContainer->setStyleSheet(QString("QWidget { background-image: url(%1); background-position: center; background-repeat: no-repeat; border: 2px solid #ddd; border-radius: 8px; }").arg(displayPath));
     } else {
         imageContainer->setStyleSheet("QWidget { background-color: #f8f8f8; border: 2px solid #ddd; border-radius: 8px; }");
     }
@@ -189,6 +201,9 @@ void ImageGallery::setCurrentImage(const QString& imagePath)
         }
     }
     
+    // Save the current image index
+    saveImages();
+    
     emit imageSelected(imagePath);
 }
 
@@ -217,6 +232,9 @@ void ImageGallery::addImage()
         if (!m_imagePaths.contains(fileName)) {
             m_imagePaths.append(fileName);
             
+            // Generate thumbnail for the new image
+            generateThumbnail(fileName);
+            
             // Add to list widget
             QListWidgetItem* item = new QListWidgetItem(m_imageList);
             ImageGalleryItem* widget = new ImageGalleryItem(fileName, m_imageList);
@@ -243,6 +261,10 @@ void ImageGallery::removeImage(const QString& imagePath)
     int index = m_imagePaths.indexOf(imagePath);
     if (index >= 0) {
         m_imagePaths.removeAt(index);
+        
+        // Remove thumbnail file if it exists
+        QString thumbnailPath = getThumbnailPath(imagePath);
+        QFile::remove(thumbnailPath);
         
         // Remove from list widget
         for (int i = 0; i < m_imageList->count(); ++i) {
@@ -279,6 +301,10 @@ void ImageGallery::startAutoChange()
     m_autoChangeEnabled = true;
     m_changeTimer->start(m_intervalSlider->value() * 60 * 1000); // Convert minutes to milliseconds
     m_autoChangeButton->setText(i18n("Stop Auto-Change"));
+    
+    // Save the auto-change state
+    saveImages();
+    
     emit autoChangeToggled(true);
 }
 
@@ -287,6 +313,10 @@ void ImageGallery::stopAutoChange()
     m_autoChangeEnabled = false;
     m_changeTimer->stop();
     m_autoChangeButton->setText(i18n("Start Auto-Change"));
+    
+    // Save the auto-change state
+    saveImages();
+    
     emit autoChangeToggled(false);
 }
 
@@ -298,6 +328,9 @@ void ImageGallery::nextImage()
     
     m_currentIndex = (m_currentIndex + 1) % m_imagePaths.size();
     setCurrentImage(m_imagePaths[m_currentIndex]);
+    
+    // Save the current image index
+    saveImages();
 }
 
 void ImageGallery::previousImage()
@@ -308,6 +341,9 @@ void ImageGallery::previousImage()
     
     m_currentIndex = (m_currentIndex - 1 + m_imagePaths.size()) % m_imagePaths.size();
     setCurrentImage(m_imagePaths[m_currentIndex]);
+    
+    // Save the current image index
+    saveImages();
 }
 
 void ImageGallery::onTimerTimeout()
@@ -318,6 +354,9 @@ void ImageGallery::onTimerTimeout()
 void ImageGallery::onIntervalChanged(int value)
 {
     updateTimerLabel();
+    
+    // Save the interval value
+    saveImages();
     
     if (m_autoChangeEnabled) {
         m_changeTimer->start(value * 60 * 1000);
@@ -361,8 +400,25 @@ void ImageGallery::loadImages()
     QSettings settings(CONFIG_FILE, QSettings::IniFormat);
     m_imagePaths = settings.value("gallery/images").toStringList();
     
+    // Load saved interval value
+    int savedInterval = settings.value("gallery/interval", 30).toInt();
+    m_intervalSlider->setValue(savedInterval);
+    
+    // Load saved auto-change state
+    m_autoChangeEnabled = settings.value("gallery/autoChangeEnabled", false).toBool();
+    m_autoChangeButton->setChecked(m_autoChangeEnabled);
+    
+    // Load saved current image index
+    m_currentIndex = settings.value("gallery/currentIndex", 0).toInt();
+    
+    // Clean up any orphaned thumbnails
+    cleanupOrphanedThumbnails();
+    
     for (const QString& imagePath : m_imagePaths) {
         if (QFile::exists(imagePath)) {
+            // Generate thumbnail for existing images
+            generateThumbnail(imagePath);
+            
             QListWidgetItem* item = new QListWidgetItem(m_imageList);
             ImageGalleryItem* widget = new ImageGalleryItem(imagePath, m_imageList);
             item->setSizeHint(widget->sizeHint());
@@ -376,7 +432,13 @@ void ImageGallery::loadImages()
     }
     
     if (!m_imagePaths.isEmpty()) {
-        setCurrentImage(m_imagePaths.first());
+        // Restore the saved current image index, or use the first image if invalid
+        if (m_currentIndex >= 0 && m_currentIndex < m_imagePaths.size()) {
+            setCurrentImage(m_imagePaths[m_currentIndex]);
+        } else {
+            setCurrentImage(m_imagePaths.first());
+            m_currentIndex = 0;
+        }
     }
 }
 
@@ -389,4 +451,106 @@ void ImageGallery::saveImages()
     
     QSettings settings(CONFIG_FILE, QSettings::IniFormat);
     settings.setValue("gallery/images", m_imagePaths);
+    
+    // Save interval value
+    settings.setValue("gallery/interval", m_intervalSlider->value());
+    
+    // Save auto-change state
+    settings.setValue("gallery/autoChangeEnabled", m_autoChangeEnabled);
+    
+    // Save current image index
+    settings.setValue("gallery/currentIndex", m_currentIndex);
+}
+
+void ImageGallery::ensureThumbnailDirectory()
+{
+    QDir thumbnailDir(THUMBNAIL_DIR);
+    if (!thumbnailDir.exists()) {
+        thumbnailDir.mkpath(".");
+    }
+}
+
+QString ImageGallery::getThumbnailPath(const QString& imagePath)
+{
+    // Create a unique filename based on the image path hash
+    QByteArray hash = QCryptographicHash::hash(imagePath.toUtf8(), QCryptographicHash::Md5);
+    QString hashString = hash.toHex();
+    
+    // Get the original file extension
+    QFileInfo fileInfo(imagePath);
+    QString extension = fileInfo.suffix().toLower();
+    
+    // Use PNG for thumbnails to ensure quality and transparency support
+    return THUMBNAIL_DIR + "/" + hashString + ".png";
+}
+
+QString ImageGallery::generateThumbnail(const QString& imagePath)
+{
+    ensureThumbnailDirectory();
+    
+    QString thumbnailPath = getThumbnailPath(imagePath);
+    
+    // Check if thumbnail already exists and is newer than the original file
+    QFileInfo thumbnailInfo(thumbnailPath);
+    QFileInfo originalInfo(imagePath);
+    
+    if (thumbnailInfo.exists() && thumbnailInfo.lastModified() >= originalInfo.lastModified()) {
+        return thumbnailPath;
+    }
+    
+    // Load the original image
+    QPixmap originalPixmap(imagePath);
+    if (originalPixmap.isNull()) {
+        return imagePath; // Return original path if loading fails
+    }
+    
+    // Scale down the image while maintaining aspect ratio
+    QPixmap thumbnail = originalPixmap.scaled(THUMBNAIL_SIZE, THUMBNAIL_SIZE, 
+                                             Qt::KeepAspectRatio, 
+                                             Qt::SmoothTransformation);
+    
+    // Save the thumbnail
+    if (thumbnail.save(thumbnailPath, "PNG")) {
+        return thumbnailPath;
+    } else {
+        return imagePath; // Return original path if saving fails
+    }
+}
+
+void ImageGallery::cleanupOrphanedThumbnails()
+{
+    ensureThumbnailDirectory();
+    
+    QDir thumbnailDir(THUMBNAIL_DIR);
+    QStringList thumbnailFiles = thumbnailDir.entryList(QStringList() << "*.png", QDir::Files);
+    
+    for (const QString& thumbnailFile : thumbnailFiles) {
+        QString thumbnailPath = THUMBNAIL_DIR + "/" + thumbnailFile;
+        
+        // Check if this thumbnail corresponds to any existing image
+        bool found = false;
+        for (const QString& imagePath : m_imagePaths) {
+            if (getThumbnailPath(imagePath) == thumbnailPath) {
+                found = true;
+                break;
+            }
+        }
+        
+        // If no corresponding image found, remove the orphaned thumbnail
+        if (!found) {
+            QFile::remove(thumbnailPath);
+        }
+    }
+}
+
+void ImageGallery::setAutoChangeEnabled(bool enabled)
+{
+    m_autoChangeEnabled = enabled;
+    m_autoChangeButton->setChecked(enabled);
+    
+    if (enabled) {
+        startAutoChange();
+    } else {
+        stopAutoChange();
+    }
 } 

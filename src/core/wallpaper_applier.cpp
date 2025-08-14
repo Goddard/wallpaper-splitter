@@ -83,6 +83,63 @@ bool WallpaperApplier::applyWallpapers(const MonitorList& monitors)
         return false;
     }
     
+    // Check if this is a single monitor setup (original image path, not split)
+    bool isSingleMonitor = false;
+    if (enabledMonitors.size() == 1) {
+        QFileInfo wallpaperFile(enabledMonitors[0].wallpaperPath);
+        // Check if the wallpaper path is the original image (not a split image)
+        if (!wallpaperFile.fileName().startsWith("wallpaper_") && 
+            !wallpaperFile.fileName().startsWith("a_wallpaper_") && 
+            !wallpaperFile.fileName().startsWith("b_wallpaper_")) {
+            isSingleMonitor = true;
+            qDebug() << "Single monitor mode detected - applying original image directly";
+        }
+    }
+    
+    // For single monitor, use a simplified DBus script
+    if (isSingleMonitor) {
+        qDebug() << "Using simplified DBus script for single monitor";
+        
+        QString imagePath = QString("file://%1").arg(enabledMonitors[0].wallpaperPath);
+        
+        // Create a simple script for single monitor
+        QString script = QString(R"(
+const ds = desktops();
+for (let i = 0; i < ds.length; i++) {
+    const desktop = ds[i];
+    desktop.wallpaperPlugin = 'org.kde.image';
+    desktop.currentConfigGroup = Array('Wallpaper', 'org.kde.image', 'General');
+    desktop.writeConfig('Image', '%1');
+    desktop.reloadConfig();
+    print('Applied wallpaper to desktop ' + i + ' (screen ' + desktop.screen + '): %1');
+}
+)").arg(imagePath);
+        
+        qDebug() << "Executing single monitor DBus script...";
+        qDebug() << "Image path:" << imagePath;
+        
+        // Execute the script via DBus
+        QProcess process;
+        process.start("qdbus", QStringList() << "org.kde.plasmashell" << "/PlasmaShell" 
+                     << "org.kde.PlasmaShell.evaluateScript" << script);
+        
+        if (!process.waitForFinished(10000)) { // 10 second timeout
+            qWarning() << "Timeout executing single monitor DBus script";
+            return false;
+        }
+        
+        if (process.exitCode() != 0) {
+            QString error = QString::fromUtf8(process.readAllStandardError());
+            qWarning() << "Failed to execute single monitor DBus script:" << error;
+            return false;
+        }
+        
+        qDebug() << "Successfully executed single monitor DBus script";
+        qDebug() << "Script output:" << QString::fromUtf8(process.readAllStandardOutput());
+        
+        return true;
+    }
+    
     // Determine which prefix to use (use the most recently created files)
     QString outputDir;
     if (!enabledMonitors.empty() && !enabledMonitors[0].wallpaperPath.isEmpty()) {

@@ -90,16 +90,49 @@ void ImagePreview::setMonitors(const WallpaperCore::MonitorList& monitors, const
     }
     m_overlays.clear();
     
-    // Create new overlays
+    // Check if we have only one enabled monitor
+    int enabledCount = 0;
     for (size_t i = 0; i < monitors.size(); ++i) {
         bool enabled = true; // Default to enabled
         if (!enabledStates.isEmpty() && i < enabledStates.size()) {
             enabled = enabledStates[i];
         }
-        
-        MonitorOverlay* overlay = new MonitorOverlay(monitors[i], static_cast<int>(i), enabled, m_overlayContainer);
-        connect(overlay, &MonitorOverlay::toggled, this, &ImagePreview::monitorToggled);
-        m_overlays.append(overlay);
+        if (enabled) {
+            enabledCount++;
+        }
+    }
+    
+    // If only one monitor is enabled, show a special message
+    if (enabledCount == 1) {
+        // Create a special overlay for single monitor mode
+        for (size_t i = 0; i < monitors.size(); ++i) {
+            bool enabled = true; // Default to enabled
+            if (!enabledStates.isEmpty() && i < enabledStates.size()) {
+                enabled = enabledStates[i];
+            }
+            
+            if (enabled) {
+                MonitorOverlay* overlay = new MonitorOverlay(monitors[i], static_cast<int>(i), enabled, m_overlayContainer);
+                connect(overlay, &MonitorOverlay::toggled, this, &ImagePreview::monitorToggled);
+                m_overlays.append(overlay);
+                
+                // Set special text for single monitor mode
+                overlay->setSingleMonitorMode(true);
+                break; // Only create overlay for the enabled monitor
+            }
+        }
+    } else {
+        // Create overlays for all monitors (multi-monitor mode)
+        for (size_t i = 0; i < monitors.size(); ++i) {
+            bool enabled = true; // Default to enabled
+            if (!enabledStates.isEmpty() && i < enabledStates.size()) {
+                enabled = enabledStates[i];
+            }
+            
+            MonitorOverlay* overlay = new MonitorOverlay(monitors[i], static_cast<int>(i), enabled, m_overlayContainer);
+            connect(overlay, &MonitorOverlay::toggled, this, &ImagePreview::monitorToggled);
+            m_overlays.append(overlay);
+        }
     }
     
     updateOverlayPositions();

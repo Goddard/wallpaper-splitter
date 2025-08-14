@@ -16,6 +16,7 @@
 #include <QAction>
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
+#include <QPixmap>
 
 class ImageGalleryItem : public QWidget {
     Q_OBJECT
@@ -60,6 +61,11 @@ public slots:
     void nextImage();
     void previousImage();
 
+public:
+    QString generateThumbnail(const QString& imagePath);
+    void cleanupOrphanedThumbnails();
+    void setAutoChangeEnabled(bool enabled);
+
 signals:
     void imageSelected(const QString& imagePath);
     void autoChangeToggled(bool enabled);
@@ -75,6 +81,8 @@ private:
     void updateTimerLabel();
     void loadImages();
     void saveImages();
+    QString getThumbnailPath(const QString& imagePath);
+    void ensureThumbnailDirectory();
     
     QVBoxLayout* m_mainLayout;
     QHBoxLayout* m_controlsLayout;
@@ -93,4 +101,6 @@ private:
     int m_currentIndex;
     
     static const QString CONFIG_FILE;
+    static const QString THUMBNAIL_DIR;
+    static const int THUMBNAIL_SIZE = 300; // Maximum size for thumbnails
 }; 
